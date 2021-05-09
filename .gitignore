@@ -1,0 +1,15 @@
+**/mbed-os
+*.log
+BUILD
+*.DS_Store
+*CMakeLists.txt
+**/CONTRIBUTING.md
+**/README.md
+**/mbed-os.lib
+**/resources
+.mbed
+.git
+.circleci/config.yml
+.github/ISSUE_TEMPLATE/bug_report.md
+.travis.yml
+LICENSE
