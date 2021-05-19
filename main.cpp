@@ -5,6 +5,7 @@
 #include "DFRobot_RGBLCD.h"
 #include "PwmOut.h"
 #include <HTS221Sensor.h>
+#include <cstring>
 
 #include "main.h"
 
@@ -13,6 +14,7 @@
 #define TEMP 2
 #define CALENDAR 3
 #define WEATHER 4
+#define LCD_CURSOR_LENGTH 16
 
 extern Data data; // Struct in header
 struct tm *timeinfo;
@@ -28,11 +30,11 @@ PwmOut piezo(D5);
 DevI2C i2c(PB_11, PB_10);
 time_t seconds;
 Timer debounce; 
+Timer lcd_scroll;
 
 Thread interface_thread;
 Thread alarm_thread;
 
-void disconnect_network();
 void interface_();
 void alarm();
 void interface_toggle();
@@ -40,21 +42,22 @@ void hour_toggle();
 void minute_toggle();
 
 int main() {
-while (true) {
     set_time(0);
-    debounce.start();
-    interface_thread.start(interface_);
-    alarm_thread.start(alarm);
+    while (true) 
+    {
+        debounce.start();
+        interface_thread.start(interface_);
+        alarm_thread.start(alarm);
 
-    button1.rise(&interface_toggle);
-    button2.rise(&hour_toggle);
-    button3.rise(&minute_toggle);
-    piezo.period(0.001f);
+        button1.rise(&interface_toggle);
+        button2.rise(&hour_toggle);
+        button3.rise(&minute_toggle);
+        piezo.period(0.001f);
 
-    connect_network();
-    get_clock();
-    get_weather();
-    disconnect_network();
+        connect_network();
+        get_clock();
+        get_weather();
+        disconnect_network();
         while (true) 
         {
             // Every hour, do an if statement-loop to get the current weather
@@ -62,22 +65,23 @@ while (true) {
 
             // Check each hour if it's day times saving and fetch new clock status from API
             if (timeinfo->tm_wday == 0 && timeinfo->tm_mon == 9 &&
-                timeinfo->tm_hour == 3 && timeinfo->tm_mday >= 25 ||
-                timeinfo->tm_wday == 0 && timeinfo->tm_mon == 2 &&
-                timeinfo->tm_hour == 2 && timeinfo->tm_mday >= 25) {
-                    break;
-            }
-
+                    timeinfo->tm_hour == 3 && timeinfo->tm_mday >= 25 ||
+                    timeinfo->tm_wday == 0 && timeinfo->tm_mon == 2 &&
+                    timeinfo->tm_hour == 2 && timeinfo->tm_mday >= 25) {
+                        break;
+                }   
             connect_network();
             get_weather();
             lcd.init();
-            disconnect_network();
+            disconnect_network();    
         }
     }
 }
 
 void interface_() {
     int i = 0;
+    lcd_scroll.start();
+    int lcd_cursor_count = 0;
     float temperature, humidity;
     DevI2C i2c(PB_11, PB_10);
     HTS221Sensor sensor(&i2c);
@@ -144,7 +148,20 @@ void interface_() {
             lcd.setCursor(0, 0);
             lcd.printf("Weather:");
             lcd.setCursor(0, 1);
-            lcd.printf("%s", data.weather);
+            if (strlen(data.weather) > LCD_CURSOR_LENGTH && std::chrono::duration_cast<std::chrono::milliseconds>(lcd_scroll.elapsed_time()).count() > 500) {
+                if (lcd_cursor_count == strlen(data.weather) - 1) 
+                    lcd_cursor_count = 0;
+                int cursor_ptr = 0;
+                for (int x = lcd_cursor_count; x < LCD_CURSOR_LENGTH + lcd_cursor_count; x++) {
+                    lcd.setCursor(cursor_ptr, 1);
+                    lcd.printf("%c", data.weather[x % (strlen(data.weather))]);
+                    printf("%d\n", lcd_cursor_count);
+                    cursor_ptr++;
+                }
+                lcd_cursor_count++;
+                lcd_scroll.reset();
+            } else if (strlen(data.weather) <= LCD_CURSOR_LENGTH)
+                lcd.printf("%s", data.weather);
         }
         if (data.thread_status == false) {
             lcd.init();

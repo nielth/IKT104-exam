@@ -6,12 +6,11 @@
 #define TLS 443
 #define TCP 80
 
-Data data;
+Data data; // Struct in header
 
 NetworkInterface *_net = NetworkInterface::get_default_instance();
 nsapi_size_or_error_t result;
 
-// New function to access TLS (HTTPS)
 TLSSocket tls_socket;
 TCPSocket tcp_socket;
 
